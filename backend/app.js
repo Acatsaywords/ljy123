@@ -107,30 +107,33 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   res.json({ message: 'File uploaded successfully', file: req.file });
 });
 
-// 导出数据为ZIP文件
+//导出数据为rar文件
+const { exec } = require('child_process');
+
 app.get('/api/export', async (req, res) => {
-  try {
-    const files = readFiles(dataDirectory);
-    const zip = archiver('zip', { zlib: { level: 9 } });
+    try {
+        const files = readFiles(dataDirectory);
 
-    res.attachment('exported_data.zip');
+        // 构建要压缩的文件列表
+        let filesList = '';
+        files.forEach(file => {
+            filesList += `'${file}' `;
+        });
 
-    zip.on('error', (err) => {
-      throw err;
-    });
-
-    zip.pipe(res);
-
-    for (const file of files) {
-      const relativePath = path.relative(dataDirectory, file);
-      zip.file(file, { name: relativePath });
+        // 使用命令行工具rar创建RAR文件
+        exec(`rar a exported_data.rar ${filesList}`, (error) => {
+            if (error) {
+                console.error('Error exporting data:', error);
+                res.status(500).send('Error exporting data');
+            } else {
+                // 将创建的RAR文件发送给客户端
+                res.download('exported_data.rar');
+            }
+        });
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        res.status(500).send('Error exporting data');
     }
-
-    await zip.finalize();
-  } catch (error) {
-    console.error('Error exporting data:', error);
-    res.status(500).send('Error exporting data');
-  }
 });
 
 // 读取所有文件并设置路由
